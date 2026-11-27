@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Amr H" />
+  <title>The Dirichlet Process, Explained by an Amateur</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [["\\(", "\\)"]],
+      displayMath: [["\\[", "\\]"]]
+    }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<header id="title-block-header">
+<h1 class="title">The Dirichlet Process, Explained by an Amateur</h1>
+<p class="author">Amr H</p>
+</header>
+<h1 class="unnumbered" id="the-problem-with-picking-a-distribution">The
+problem with picking a distribution</h1>
+<p>Imagine trying to model a dataset without knowing what its underlying
+probability distribution looks like. Rather than choosing a specific
+distribution beforehand, we could place a probability distribution over
+possible distributions. This allows us to express uncertainty not just
+about the data, but also about the distribution that generates it.</p>
+<p>The Dirichlet process (DP) provides exactly this framework. It is a
+stochastic process whose realizations are themselves probability
+distributions. Instead of assuming a fixed number of possible outcomes
+or clusters, it allows the model to accommodate an unbounded number of
+them.</p>
+<p>That is the basic appeal of the DP for clustering: the number of
+clusters is not fixed in advance. But there is a catch worth keeping in
+mind from the beginning. The DP does not magically discover the one
+objectively correct number of clusters. It gives us a probability model
+in which the number of occupied clusters is uncertain and can adapt to
+the data. The distinction matters, and we will come back to it.</p>
+<p>Formally, a Dirichlet process is a probability distribution over
+probability distributions. A prior is a distribution expressing our
+uncertainty before observing data; a posterior is the updated
+distribution after observing data. A draw from a DP is therefore not one
+number or one vector of parameters. It is an entire probability
+distribution. Almost surely (meaning with probability one), that draw is
+discrete: it places all its probability mass on a countable collection
+of points, often called atoms. If two latent draws select the same atom,
+they share a cluster label.</p>
+<h1 class="unnumbered" id="a-distribution-of-distributions">A
+Distribution of Distributions</h1>
+<p>Why would we want a prior over an entire probability distribution in
+the first place?</p>
+<p>In an ordinary parametric Bayesian model, the number of parameters is
+fixed in advance. For example, a Gaussian model might have a mean and a
+variance (or a mean vector and covariance matrix). We put a prior on
+those parameters and update it as observations arrive. Collecting ten
+million observations does not suddenly give the model more
+parameters.</p>
+<p>Bayesian nonparametrics takes a step back. The unknown object is
+itself a probability measure on a space <span
+class="math inline">\(\Theta\)</span>. Instead of only asking, “What is
+the mean?” or “What is the covariance?”, we ask, “What distribution
+could plausibly have generated these observations?” The word
+<em>nonparametric</em> does not mean that there are no parameters at
+all. The DP still has ingredients such as a base measure and a
+concentration parameter. It means that the model does not impose a fixed
+finite-dimensional form on the unknown distribution.</p>
+<p>The name comes from the ordinary Dirichlet distribution. A Dirichlet
+distribution describes random probability vectors: nonnegative numbers
+that add up to one. For three categories, those vectors live on a
+triangle; for two, they live on a line segment. The Dirichlet process
+extends this idea to probability measures. Its defining property is
+that, no matter how we divide the space into a finite collection of
+measurable pieces, the probabilities assigned to those pieces follow a
+Dirichlet distribution.</p>
+<h1 class="unnumbered"
+id="fergusons-definition-the-formal-bit">Ferguson’s Definition: The
+Formal Bit</h1>
+<p>Let <span class="math inline">\((\Theta,\mathcal{B})\)</span> be a
+measurable space, where <span class="math inline">\(\Theta\)</span> is
+the set of possible values and <span
+class="math inline">\(\mathcal{B}\)</span> specifies the subsets to
+which we can assign probabilities. Let <span
+class="math inline">\(H\)</span> be a probability measure on <span
+class="math inline">\(\Theta\)</span>, and let <span
+class="math inline">\(\alpha&gt;0\)</span> be a concentration
+parameter.</p>
+<p>A random probability measure <span class="math inline">\(G\)</span>
+follows a Dirichlet process with base measure <span
+class="math inline">\(H\)</span> and concentration parameter <span
+class="math inline">\(\alpha\)</span>, written <span
+class="math display">\[G\sim\operatorname{DP}(\alpha,H),\]</span> if,
+for every finite measurable partition <span
+class="math inline">\((A_1,\ldots,A_K)\)</span> of <span
+class="math inline">\(\Theta\)</span>, <span
+class="math display">\[\bigl(G(A_1),\ldots,G(A_K)\bigr)
+\sim
+\operatorname{Dirichlet}\bigl(
+\alpha H(A_1),\ldots,\alpha H(A_K)
+\bigr).\]</span> If <span class="math inline">\(H(A_k)=0\)</span>, then
+<span class="math inline">\(G(A_k)=0\)</span> almost surely.</p>
+<p>That definition looks intimidating, but the two ingredients have
+fairly intuitive jobs. The base measure <span
+class="math inline">\(H\)</span> tells the process where probability
+mass is expected to go. In fact, <span
+class="math display">\[\mathbb{E}[G(A)]=H(A)\]</span> for every
+measurable set <span class="math inline">\(A\)</span>. The concentration
+parameter <span class="math inline">\(\alpha\)</span> controls how
+tightly a draw <span class="math inline">\(G\)</span> tends to stay
+around <span class="math inline">\(H\)</span>. More precisely, <span
+class="math display">\[\operatorname{Var}(G(A))
+=
+\frac{H(A)(1-H(A))}{\alpha+1}.\]</span> A large <span
+class="math inline">\(\alpha\)</span> gives lower variance, so the
+random measure tends to look more like <span
+class="math inline">\(H\)</span>. A small <span
+class="math inline">\(\alpha\)</span> allows more variation. To build an
+intuitive definition: Think of <span class="math inline">\(H\)</span> as
+the suggested menu and <span class="math inline">\(\alpha\)</span> as
+how strongly the restaurant sticks to it.</p>
+<h1 class="unnumbered" id="conjugacy-rapid-update">Conjugacy: Rapid
+update</h1>
+<p>One especially convenient property of the DP is conjugacy. In
+Bayesian language, this means that after observing data, the posterior
+belongs to the same family as the prior. The update is unusually
+neat.</p>
+<p>Suppose that, conditional on <span class="math inline">\(G\)</span>,
+we observe independent draws <span
+class="math inline">\(\theta_1,\ldots,\theta_n\)</span> from <span
+class="math inline">\(G\)</span>. Then <span
+class="math display">\[G\mid\theta_1,\ldots,\theta_n
+\sim
+\operatorname{DP}\!\left(
+\alpha+n,\,
+\frac{\alpha H+\sum_{i=1}^{n}\delta_{\theta_i}}{\alpha+n}
+\right),\]</span> where <span
+class="math inline">\(\delta_{\theta_i}\)</span> is a point mass at
+<span class="math inline">\(\theta_i\)</span>: it assigns probability
+one to that particular value.</p>
+<p>There are two updates happening here. First, the concentration
+parameter increases from <span class="math inline">\(\alpha\)</span> to
+<span class="math inline">\(\alpha+n\)</span>, as if we have added <span
+class="math inline">\(n\)</span> observations’ worth of information.
+Second, the new base measure is a weighted blend of the original <span
+class="math inline">\(H\)</span> and the empirical distribution of the
+observations. The empirical distribution assigns equal probability mass
+to each observed value. So, as we collect more observations, we update
+our estimate of the underlying probability distribution using the data
+we have seen.</p>
+<p>A small warning: this conjugacy statement is for observations drawn
+directly from <span class="math inline">\(G\)</span>. In a mixture
+model, we usually observe data <span class="math inline">\(x_i\)</span>
+generated through another distribution conditional on a latent parameter
+<span class="math inline">\(\theta_i\)</span>. That extra layer changes
+the inference problem. We will need a different tool for that part.</p>
+<h1 class="unnumbered"
+id="breaking-a-stick-over-and-over-again">Breaking a Stick over and over
+again</h1>
+<p>Ferguson’s definition tells us what probabilities look like on every
+finite partition, but it does not give us a particularly visual picture
+of a draw from <span class="math inline">\(G\)</span>. Stick-breaking
+does:</p>
+<p>Imagine a stick of total length one. Draw <span
+class="math inline">\(\beta_1\sim\operatorname{Beta}(1,\alpha)\)</span>,
+break off that fraction of the stick, and call the piece <span
+class="math inline">\(\pi_1\)</span>. From what remains, break off a
+fraction <span class="math inline">\(\beta_2\)</span>, calling that
+piece <span class="math inline">\(\pi_2\)</span>. Keep going. Formally,
+take independent variables <span
+class="math display">\[\beta_k\sim\operatorname{Beta}(1,\alpha),
+\qquad
+\theta_k^*\sim H,\]</span> and define <span class="math display">\[\pi_k
+=
+\beta_k\prod_{j=1}^{k-1}(1-\beta_j),
+\qquad
+G=\sum_{k=1}^{\infty}\pi_k\delta_{\theta_k^*}.\]</span> The <span
+class="math inline">\(\theta_k^*\)</span> are the atoms, and the <span
+class="math inline">\(\pi_k\)</span> are the probability weights
+assigned to them. The result is a discrete random probability
+distribution.</p>
+<p>This is a like planning a procrastinator’s weekend. You have 48
+hours. You promise to spend 30% of your time on homework. Then you look
+at the remaining 70% and promise to spend 25% of that on chores. Then
+you look at what is left and allocate 40% of it to Netflix. Each
+decision takes a fraction of what remains, not a fraction of the
+original 48 hours. Eventually, you have a long tail of increasingly
+small pieces. The stick-breaking construction works the same way, except
+the pieces are probability weights rather than tasks on your todo
+list.</p>
+<figure class="blog-figure"><img src="figures/stick-breaking.svg" alt="A unit stick divided into successive probability weights pi one, pi two, pi three, and the remaining length."><figcaption>A unit stick snapped successively. The shaded pieces are the weights πₖ; the unshaded portion is what remains.</figcaption></figure>
+<p>The construction really does use up the whole stick. Since <span
+class="math display">\[\mathbb{E}[\ln(1-\beta_j)]=-\frac{1}{\alpha}&lt;0,\]</span>
+the remaining fraction <span
+class="math display">\[\prod_{j=1}^{k}(1-\beta_j)\]</span> converges to
+zero almost surely. Consequently, the weights add up to one almost
+surely. Their expectations are <span
+class="math display">\[\mathbb{E}[\pi_k]
+=
+\frac{1}{1+\alpha}
+\left(\frac{\alpha}{1+\alpha}\right)^{k-1}.\]</span> So the expected
+weights decrease geometrically. A smaller <span
+class="math inline">\(\alpha\)</span> tends to put more weight on the
+first few atoms; a larger <span class="math inline">\(\alpha\)</span>
+spreads the expected weight across more of them. In practice, we often
+truncate the infinite sum at a sufficiently large <span
+class="math inline">\(K\)</span> for computation. That gives a finite
+approximation, not a claim that the original process has only <span
+class="math inline">\(K\)</span> atoms.</p>
+<h1 class="unnumbered"
+id="the-chinese-restaurant-clusters-without-a-seating-chart">The Chinese
+Restaurant: Clusters Without a Seating Chart</h1>
+<p>Now suppose we integrate <span class="math inline">\(G\)</span> out
+and focus on the cluster assignments of observations. This gives the
+Chinese Restaurant Process (CRP), one of the most memorable ways to
+understand the DP.</p>
+<p>Picture a restaurant with infinitely many possible tables. The first
+customer sits at the first table. Each later customer chooses between
+joining an occupied table and starting a new one. If table <span
+class="math inline">\(k\)</span> currently has <span
+class="math inline">\(n_k\)</span> customers, then customer <span
+class="math inline">\(n\)</span> joins it with probability <span
+class="math display">\[P(\text{table }k)
+=
+\frac{n_k}{n-1+\alpha},\]</span> or starts a new table with probability
+<span class="math display">\[P(\text{new table})
+=
+\frac{\alpha}{n-1+\alpha}.\]</span> The probabilities add up to one
+because the occupied table counts sum to <span
+class="math inline">\(n-1\)</span>.</p>
+<p>The restaurant has a simple rule: popular tables attract more
+customers, but opening a new table is always possible. The parameter
+<span class="math inline">\(\alpha\)</span> controls how appealing that
+new-table option is. A larger <span
+class="math inline">\(\alpha\)</span> makes new tables more likely; a
+smaller one encourages customers to join existing groups.</p>
+<p>After <span class="math inline">\(n\)</span> customers, let <span
+class="math inline">\(K_n\)</span> be the number of occupied tables. Its
+expected value is <span class="math display">\[\mathbb{E}[K_n]
+=
+\sum_{i=1}^{n}\frac{\alpha}{\alpha+i-1}
+=
+\alpha\bigl(\psi(\alpha+n)-\psi(\alpha)\bigr),\]</span> where <span
+class="math inline">\(\psi\)</span> is the digamma function. For large
+<span class="math inline">\(n\)</span>, this grows approximately like
+<span class="math display">\[\mathbb{E}[K_n]\approx
+\alpha\ln\left(1+\frac{n}{\alpha}\right).\]</span> For example, when
+<span class="math inline">\(\alpha=1\)</span> and <span
+class="math inline">\(n=100\)</span>, the exact expectation is the 100th
+harmonic number, approximately <span class="math inline">\(5.19\)</span>
+occupied tables. When <span class="math inline">\(\alpha=10\)</span>, it
+is approximately <span class="math inline">\(24.44\)</span>. These are
+expectations, not guaranteed table counts: an actual seating arrangement
+can have more or fewer tables.</p>
+<h1 class="unnumbered" id="the-polya-urn">The Polya Urn</h1>
+<p>The Blackwell-MacQueen Polya urn gives another view of the same
+process. Instead of customers and tables, imagine drawing values from an
+urn. The predictive distribution for the next draw is <span
+class="math display">\[\theta_n\mid\theta_1,\ldots,\theta_{n-1}
+\sim
+\frac{\alpha H+\sum_{i=1}^{n-1}\delta_{\theta_i}}
+{\alpha+n-1}.\]</span> This expression has two ways to produce the next
+value. With weight proportional to <span
+class="math inline">\(\alpha\)</span>, we draw a fresh value from <span
+class="math inline">\(H\)</span>. Otherwise, we repeat one of the values
+already observed, with values that have appeared more often being more
+likely to appear again.</p>
+<p>That is the same reinforcement idea as the restaurant: existing
+values become easier to repeat, but a new value can still appear. The
+sequence is infinitely exchangeable, which means that the joint
+distribution of any finite collection of draws does not depend on their
+order. By de Finetti’s theorem, such a sequence can be represented as
+conditionally independent draws from a random probability measure. In
+this case, that random measure has the DP distribution <span
+class="math inline">\(\operatorname{DP}(\alpha,H)\)</span>.</p>
+<p>The restaurant and the urn are not two unrelated tricks. They are two
+ways of describing the predictive behaviour associated with the same
+underlying random measure.</p>
+<h1 class="unnumbered" id="how-do-we-model-continuous-data">How do we
+model continuous data?</h1>
+<p>There is an apparent problem: A draw <span
+class="math inline">\(G\)</span> from a DP is almost surely discrete. If
+we draw observations directly from <span
+class="math inline">\(G\)</span>, repeated values are possible. That is
+useful for clustering, but it is not a realistic model for measurements
+such as height, temperature, or voltage, which are usually treated as
+continuous.</p>
+<p>The solution is to put a sampling distribution around each atom. This
+gives a Dirichlet process mixture model (DPMM): <span
+class="math display">\[G\sim\operatorname{DP}(\alpha,H),\qquad
+\theta_i\mid G\sim G,\qquad
+x_i\mid\theta_i\sim p(x\mid\theta_i).\]</span> Here, <span
+class="math inline">\(\theta_i\)</span> is a latent parameter selected
+from the discrete measure <span class="math inline">\(G\)</span>, and
+<span class="math inline">\(x_i\)</span> is the actual observation
+generated using a kernel distribution <span
+class="math inline">\(p(x\mid\theta_i)\)</span>. For example, <span
+class="math inline">\(\theta_i\)</span> might contain the mean and
+variance of a Gaussian distribution.</p>
+<p>Because <span class="math inline">\(G\)</span> is discrete, different
+observations can select the same <span
+class="math inline">\(\theta_i\)</span>, which puts them in the same
+cluster. But their observed values <span
+class="math inline">\(x_i\)</span> need not be identical: they are
+generated from a continuous distribution centred or shaped by that
+shared parameter. The DP supplies the clustering structure; the kernel
+supplies the continuous variation within each cluster.</p>
+<h1 class="unnumbered" id="assigning-the-clusters">Assigning the
+clusters</h1>
+<p>For a conjugate DPMM, we can integrate <span
+class="math inline">\(G\)</span> out and use a Markov chain Monte Carlo
+(MCMC) method to sample cluster assignments. One common approach is a
+collapsed Gibbs sampler. The idea is to temporarily remove observation
+<span class="math inline">\(i\)</span> from its cluster, then calculate
+how plausible each possible reassignment would be.</p>
+<p>For an existing cluster <span class="math inline">\(k\)</span>, the
+unnormalised assignment probability is <span
+class="math display">\[n_{k,-i}\,
+p(x_i\mid x_{-i,z_{-i}=k}),\]</span> where <span
+class="math inline">\(n_{k,-i}\)</span> is the number of other
+observations currently assigned to cluster <span
+class="math inline">\(k\)</span>, and the predictive density measures
+how well observation <span class="math inline">\(x_i\)</span> fits that
+cluster. For a new cluster, the corresponding weight is <span
+class="math display">\[\alpha\int p(x_i\mid\theta)\,H(d\theta).\]</span>
+These are weights proportional to the probabilities; to obtain actual
+probabilities, we normalize them so that all possible assignments sum to
+one.</p>
+<p>Translating to English, the sampler asks two questions: how many
+observations are already in this group, and how well does this
+observation fit? A large cluster gets an advantage from its size, but a
+small or new cluster can still win if the observation fits it much
+better. When the prior <span class="math inline">\(H\)</span> is
+conjugate to the sampling model, the predictive distributions and the
+integral for a new cluster can often be calculated in closed form.</p>
+<p>This is not a magic clustering machine. MCMC produces samples from a
+posterior distribution, and its reliability depends on the model and the
+sampler mixing well. It is useful because it lets us represent
+uncertainty over cluster assignments rather than pretending that one
+clustering is unquestionably correct.</p>
+<h1 class="unnumbered" id="four-pieces-of-the-same-pizza">Four Pieces of
+the Same Pizza?</h1>
+<p>We have now seen the Dirichlet process from four angles. Ferguson’s
+definition tells us what probability assignments look like on finite
+partitions. Stick-breaking shows how a discrete random distribution can
+be built from an infinite sequence of weights. The Chinese Restaurant
+Process describes how clusters form as observations arrive. And the
+Polya urn gives the same predictive story in terms of repeated
+draws.</p>
+<p>The practical attraction is that we do not have to specify a finite
+number of mixture components before fitting the model. The number of
+occupied clusters is allowed to vary with the data. But there is an
+important drawback: a DP mixture’s posterior number of clusters does not
+necessarily converge to the true number of components in the
+distribution that generated the data. The model is flexible, but
+flexibility is not the same thing as an automatic guarantee of
+recovering the "correct" clustering.</p>
+<p>Once this distinction is clear, related models become easier to
+understand. For example, hierarchical Dirichlet processes extend the
+idea to grouped data, allowing different groups to share mixture
+components while retaining their own specific structure.</p>
+<p>The Dirichlet process is not a magic spell, and it does not make
+choosing a model unnecessary. What it gives us is a coherent way to
+express uncertainty over distributions and let the number of occupied
+clusters grow as observations arrive.</p>
+<h1 class="unnumbered" id="references">References</h1>
+<ol>
+<li><p>Antoniak, C. E. (1974). Mixtures of Dirichlet Processes with
+Applications to Bayesian Nonparametric Problems. <em>Annals of
+Statistics</em>, 2(6), 1152–1174.</p></li>
+<li><p>Brown University CSCI 2950-P (2011). Applied Bayesian
+Nonparametrics, Lecture Notes. <a
+href="https://cs.brown.edu/courses/csci2950-p/fall2011/lectures/2011-09-22_dirichletProcesses.pdf"
+class="uri">https://cs.brown.edu/courses/csci2950-p/fall2011/lectures/2011-09-22_dirichletProcesses.pdf</a></p></li>
+<li><p>Escobar, M. D., and West, M. (1995). Bayesian Density Estimation
+and Inference Using Mixtures. <em>Journal of the American Statistical
+Association</em>, 90(430), 577–588.</p></li>
+<li><p>Ferguson, T. S. (1973). A Bayesian Analysis of Some Nonparametric
+Problems. <em>Annals of Statistics</em>, 1(2), 209–230.</p></li>
+<li><p>Ghosal, S., and van der Vaart, A. (2017). <em>Fundamentals of
+Nonparametric Bayesian Inference</em>. Cambridge University
+Press.</p></li>
+<li><p>Neal, R. M. (2000). Markov Chain Sampling Methods for Dirichlet
+Process Mixture Models. <em>Journal of Computational and Graphical
+Statistics</em>, 9(2), 249–265.</p></li>
+<li><p>Rochebrune, J., and Julyan, A. (2018). P vs NP: Dirichlet
+Processes. HAL preprint hal-01950668. <a
+href="https://hal.science/hal-01950668v1/file/Rochebrune_julyan_HAL.pdf"
+class="uri">https://hal.science/hal-01950668v1/file/Rochebrune_julyan_HAL.pdf</a></p></li>
+<li><p>Sethuraman, J. (1994). A Constructive Definition of Dirichlet
+Priors. <em>Statistica Sinica</em>, 4(2), 639–650.</p></li>
+<li><p>Teh, Y. W., Jordan, M. I., Beal, M. J., and Blei, D. M. (2006).
+Hierarchical Dirichlet Processes. <em>Journal of the American
+Statistical Association</em>, 101(476), 1566–1581.</p></li>
+</ol>
+</main>
+</body>
+</html>
